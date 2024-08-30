@@ -164,7 +164,7 @@ namespace texture_baker_cpp
                    point.y >= min.y && point.y <= max.y;
         }
 
-#if defined(__NVCC__)
+#if defined(__NVCC__) || defined(__HIPCC__)
 	    CUDA_DEVICE bool overlaps(const float2 &point) const
         {
             return point.x >= min.x && point.x <= max.x &&

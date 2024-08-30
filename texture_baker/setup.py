@@ -6,6 +6,7 @@ import torch
 from setuptools import find_packages, setup
 from torch.utils.cpp_extension import (
     CUDA_HOME,
+    ROCM_HOME,
     BuildExtension,
     CppExtension,
     CUDAExtension,
@@ -17,6 +18,7 @@ library_name = "texture_baker"
 def get_extensions():
     debug_mode = os.getenv("DEBUG", "0") == "1"
     use_cuda = os.getenv("USE_CUDA", "1" if torch.cuda.is_available() else "0") == "1"
+    use_rocm = os.getenv("USE_ROCM", "1" if torch.cuda.is_available() else "0") == "1"
     use_metal = (
         os.getenv("USE_METAL", "1" if torch.backends.mps.is_available() else "0") == "1"
     )
@@ -24,6 +26,7 @@ def get_extensions():
         print("Compiling in debug mode")
 
     use_cuda = use_cuda and torch.cuda.is_available() and CUDA_HOME is not None
+    use_rocm = use_rocm and torch.cuda.is_available() and ROCM_HOME is not None
     extension = CUDAExtension if use_cuda else CppExtension
 
     extra_link_args = []
@@ -62,7 +65,7 @@ def get_extensions():
         print("No source files found for extension, skipping extension compilation")
         return None
 
-    if use_cuda:
+    if use_cuda and not use_rocm:
         define_macros += [
             ("THRUST_IGNORE_CUB_VERSION_CHECK", None),
         ]
@@ -70,6 +73,14 @@ def get_extensions():
             os.path.join(this_dir, library_name, "csrc", "**", "*.cu"), recursive=True
         )
         libraries += ["cudart", "c10_cuda"]
+
+    if use_rocm:
+        define_macros += [
+            ("THRUST_IGNORE_CUB_VERSION_CHECK", None),
+        ]
+        sources += glob.glob(
+            os.path.join(this_dir, library_name, "csrc", "**", "*.hip"), recursive=True
+        )
 
     if use_metal:
         define_macros += [
